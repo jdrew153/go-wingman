@@ -44,6 +44,7 @@ func main() {
 			db.CreateRedisConnection,
 			db.CreateKafkaProducer,
 			services.NewUserService,
+			services.NewSessionService,
 			handlers.NewUserHandler,
 		),
 		fx.Invoke(newFiberServer),

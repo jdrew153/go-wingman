@@ -38,6 +38,11 @@ type NewUser struct {
 	Longitude     string `json:"longitude"`
 }
 
+type UserSessionResponse struct {
+	User    NewUser `json:"user"`
+	Session Session `json:"session"`
+}
+
 func (s *UserStorage) CacheUser(data NewUser) (NewUser, error) {
 	var user NewUser
 
