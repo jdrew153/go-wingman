@@ -17,13 +17,19 @@ type UserStorage struct {
 	Con  *pgxpool.Pool
 	RCon *redis.Client
 	KP   *kafka.Writer
+	M   *lib.Mailer
 }
 
-func NewUserService(con *pgxpool.Pool, rcon *redis.Client, kp *kafka.Writer) *UserStorage {
+func NewUserService(
+	con *pgxpool.Pool, 
+	rcon *redis.Client, 
+	kp *kafka.Writer,
+	m *lib.Mailer) *UserStorage {
 	return &UserStorage{
 		Con:  con,
 		RCon: rcon,
 		KP:   kp,
+		M: m,
 	}
 }
 
@@ -130,6 +136,10 @@ func (s *UserStorage) CreateNewUser(data NewUser) (NewUser, error) {
 	if err != nil {
 		return NewUser{}, err
 	}
+
+	go func() {
+		s.M.SendMail(user.Email, "Welcome to Wingman!", user.Username)
+	}()
 
 	go func() {
 

@@ -8,12 +8,18 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/jdrew153/db"
 	"github.com/jdrew153/handlers"
+	"github.com/jdrew153/lib"
+	"github.com/jdrew153/middleware"
 	"github.com/jdrew153/services"
 	"go.uber.org/fx"
 )
 
 
-func newFiberServer(lc fx.Lifecycle, userHandler *handlers.UserHandler) *fiber.App {
+func newFiberServer(
+	lc fx.Lifecycle, 
+	userHandler *handlers.UserHandler,
+	middleware *middleware.SessionMiddlewareHandler,
+	) *fiber.App {
 
 	app := fiber.New()
 	app.Use(cors.New())
@@ -22,7 +28,14 @@ func newFiberServer(lc fx.Lifecycle, userHandler *handlers.UserHandler) *fiber.A
 	group := app.Group("/api/v1/auth")
 	group.Post("/signup", userHandler.CreateUser)
 
-
+	
+	app.Use(middleware.AuthCheck)
+	/// Authenticated routes
+	app.Get("/protected", func(c *fiber.Ctx) error {
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"message": "You are authenticated",
+		})
+	})
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -43,9 +56,11 @@ func main() {
 			db.CreateNeonConnection,
 			db.CreateRedisConnection,
 			db.CreateKafkaProducer,
+			lib.NewMailer,
 			services.NewUserService,
 			services.NewSessionService,
 			handlers.NewUserHandler,
+			middleware.NewSessionMiddlewareHandler,
 		),
 		fx.Invoke(newFiberServer),
 	).Run()

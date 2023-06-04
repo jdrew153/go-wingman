@@ -46,7 +46,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		return c.SendString(err.Error())
 	}
 	
-	return c.JSON(services.UserSessionResponse{User: newUser, Session: <-s1})
+	return c.Status(fiber.StatusCreated).JSON(services.UserSessionResponse{User: newUser, Session: <-s1})
 }
 
 
@@ -64,5 +64,5 @@ func (h *UserHandler) CacheUser(c *fiber.Ctx) error {
 	if err != nil {
 		return c.SendString(err.Error())
 	}
-	return c.JSON(newUser)
+	return c.Status(fiber.StatusCreated).JSON(newUser)
 }
