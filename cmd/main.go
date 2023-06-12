@@ -49,6 +49,7 @@ func newFiberServer(
 	notificationsGroup := app.Group("/api/v1/notifications")
 	notificationsGroup.Post("/new", notificationHandler.CreateNotificationPair)
 	notificationsGroup.Get("/user/:userId", notificationHandler.FetchDeviceTokenForUser)
+	notificationsGroup.Post("/send/:userId", notificationHandler.SendAPNSNotification)
 
 	app.Use(middleware.AuthCheck)
 
@@ -101,12 +102,14 @@ func main() {
 			services.NewWingmanService,
 			services.NewMatchService,
 			services.NewNotificationService,
+			services.NewWMNotificationStorage,
 			handlers.NewUserHandler,
 			handlers.NewAuthHandler,
 			handlers.NewInterestHandler,
 			handlers.NewWingmanHandler,
 			handlers.NewMatchHandler,
 			handlers.NewNotificationHandler,
+			handlers.NewWMNotificationHandler,
 			middleware.NewSessionMiddlewareHandler,
 		),
 		fx.Invoke(newFiberServer),

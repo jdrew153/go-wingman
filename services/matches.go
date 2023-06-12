@@ -26,27 +26,26 @@ type MatchRequest struct {
 	UserIdB string `json:"userIdB"`
 }
 
-////   
-////   Note: UserIdA is the user who initiated the match request. 
+////
+////   Note: UserIdA is the user who initiated the match request.
 ////   UserIdB is the user who received the match request.
 ////
 ////
 
-
 type MatchResponse struct {
-	MatchId string `json:"matchId"`
-	UserIdA string `json:"userIdA"`
-	UserIdB string `json:"userIdB"`
+	MatchId     string `json:"matchId"`
+	UserIdA     string `json:"userIdA"`
+	UserIdB     string `json:"userIdB"`
 	MatchStatus string `json:"matchStatus"`
-	TimeStamp int64 `json:"timeStamp"`
+	TimeStamp   int64  `json:"timeStamp"`
 }
 
- //// Use these values for the match status enum.....
+//// Use these values for the match status enum.....
 
 const (
-	Pending = "pending"
+	Pending  = "pending"
 	Rejected = "rejected"
-	Mutual = "mutual"
+	Mutual   = "mutual"
 )
 
 func (s *MatchStorage) CreateNewMatch(request MatchRequest) (MatchResponse, error) {
@@ -57,8 +56,8 @@ func (s *MatchStorage) CreateNewMatch(request MatchRequest) (MatchResponse, erro
 	timeStamp := time.Now().Unix()
 	matchStatus := Pending
 
-	err := s.Con.QueryRow(context.Background(), "INSERT INTO matches (match_id, user_id_a, user_id_b, match_status, time_stamp) VALUES ($1, $2, $3, $4, $5) RETURNING *", 
-	id, request.UserIdA, request.UserIdB, matchStatus, timeStamp, timeStamp).Scan(&match.MatchId, &match.UserIdA, 
+	err := s.Con.QueryRow(context.Background(), "INSERT INTO matches (match_id, user_id_a, user_id_b, match_status, time_stamp) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+		id, request.UserIdA, request.UserIdB, matchStatus, timeStamp, timeStamp).Scan(&match.MatchId, &match.UserIdA,
 		&match.UserIdB, &match.MatchStatus, &match.TimeStamp)
 
 	if err != nil {
@@ -77,6 +76,7 @@ func (s *MatchStorage) FindAndUpdateMatchStatus(userIdA string, userIdB string, 
 	).Scan(&match.MatchId, &match.UserIdA, &match.UserIdB, &match.MatchStatus, &match.TimeStamp)
 
 	/// TODO - Send off notification to userIdA based on updated status value
+
 
 	if err != nil {
 		return match, err

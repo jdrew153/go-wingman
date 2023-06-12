@@ -7,11 +7,13 @@ import (
 
 type MatchHandler struct {
 	MatchService *services.MatchStorage
+	NotificationService *services.NotificationStorage
 }
 
-func NewMatchHandler(m *services.MatchStorage) *MatchHandler {
+func NewMatchHandler(m *services.MatchStorage, n *services.NotificationStorage) *MatchHandler {
 	return &MatchHandler{
 		MatchService: m,
+		NotificationService: n,
 	}
 }
 
