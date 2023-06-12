@@ -1,7 +1,8 @@
 package handlers
 
 import (
-	
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/jdrew153/services"
 )
@@ -65,4 +66,17 @@ func (h *UserHandler) CacheUser(c *fiber.Ctx) error {
 		return c.SendString(err.Error())
 	}
 	return c.Status(fiber.StatusCreated).JSON(newUser)
+}
+
+func (h *UserHandler) FetchUsersFeed(ctx *fiber.Ctx) error {
+
+	users, err := h.Service.GetAllUsers()
+
+	if err != nil {
+		return ctx.Status(500).JSON(fiber.Map{
+			"message": fmt.Sprintf("Error fetching users: %s", err.Error()),
+		})
+	}
+
+	return ctx.Status(200).JSON(users)
 }

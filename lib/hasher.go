@@ -16,3 +16,15 @@ func Hash(password string) (string, error) {
 	return string(encoded), nil
 }
 
+
+func VerifyHash(hashedPass string, plainPass string) (bool, error) {
+	
+	ok, err := argon2.VerifyEncoded([]byte(plainPass), []byte(hashedPass))
+
+	if err != nil {
+		return ok, err
+	}
+
+	return ok, nil
+}
+

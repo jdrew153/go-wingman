@@ -17,31 +17,35 @@ type UserStorage struct {
 	Con  *pgxpool.Pool
 	RCon *redis.Client
 	KP   *kafka.Writer
-	M   *lib.Mailer
+	M    *lib.Mailer
 }
 
 func NewUserService(
-	con *pgxpool.Pool, 
-	rcon *redis.Client, 
+	con *pgxpool.Pool,
+	rcon *redis.Client,
 	kp *kafka.Writer,
 	m *lib.Mailer) *UserStorage {
 	return &UserStorage{
 		Con:  con,
 		RCon: rcon,
 		KP:   kp,
-		M: m,
+		M:    m,
 	}
 }
 
 type NewUser struct {
-	Id            string `json:"id"`
-	Username      string `json:"username"`
-	Password      string `json:"password"`
-	Email         string `json:"email"`
-	EmailVerified bool   `json:"emailVerified"`
-	Image         string `json:"image"`
-	Latitude      string `json:"latitude"`
-	Longitude     string `json:"longitude"`
+	Id               string `json:"id"`
+	Username         string `json:"username"`
+	Password         string `json:"password"`
+	Email            string `json:"email"`
+	EmailVerified    bool   `json:"emailVerified"`
+	Image            string `json:"image"`
+	Latitude         string `json:"latitude"`
+	Longitude        string `json:"longitude"`
+	PhoneNumber      string `json:"phoneNumber"`
+	TwoFactorEnabled string `json:"twoFactorEnabled"`
+	Bio              string `json:"bio"`
+	WingmanNickname  string `json:"wingmanNickname"`
 }
 
 type UserSessionResponse struct {
@@ -163,4 +167,92 @@ func (s *UserStorage) CreateNewUser(data NewUser) (NewUser, error) {
 	}()
 
 	return user, nil
+}
+
+func (s *UserStorage) GetAllUsers() ([]UserPostModel, error) {
+	results := s.retrieveCachedPosts("test")
+
+	if len(results) == 0 {
+		fmt.Println("fetching from db...")
+		users := make(map[string]*UserPostModel)
+
+		rows, err := s.Con.Query(context.Background(), "select * from authuser a inner join posts p on a.id = p.user_id")
+
+		if err != nil {
+			return []UserPostModel{}, err
+		}
+
+		for rows.Next() {
+			var user NewUser
+			var post Post
+
+			err = rows.Scan(&user.Id, &user.Username, &user.Password, &user.Email,
+				&user.EmailVerified, &user.Image, &user.Latitude, &user.Longitude, &user.PhoneNumber,
+				&user.TwoFactorEnabled, &user.Bio, &user.WingmanNickname, &post.PostId, &post.UserId,
+				&post.ImageUrl, &post.TimeStamp, &post.Caption)
+
+			if err != nil {
+				fmt.Println(err.Error())
+				return []UserPostModel{}, err
+			}
+
+			if existingUser, ok := users[user.Email]; ok {
+				existingUser.Posts = append(existingUser.Posts, post)
+			} else {
+				users[user.Email] = &UserPostModel{
+					Id:                user.Id,
+					Username:          user.Username,
+					Password:          user.Password,
+					Email:             user.Email,
+					EmailVerified:     user.EmailVerified,
+					Image:             user.Image,
+					Latitude:          user.Latitude,
+					Longitude:         user.Longitude,
+					PhoneNumber:       user.PhoneNumber,
+					TwoFactorEnabled:  user.TwoFactorEnabled,
+					Bio:               user.Bio,
+					WingmanNickname:   user.WingmanNickname,
+					Posts:             []Post{post},
+				}
+			}
+		}
+
+		// Convert the map values to a slice
+		usersSlice := make([]UserPostModel, 0, len(users))
+		for _, user := range users {
+			usersSlice = append(usersSlice, *user)
+		}
+
+		d, err := json.Marshal(usersSlice)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+
+		s.RCon.Set(context.Background(), "test", string(d), 0)
+
+		return usersSlice, nil
+	}
+
+	fmt.Println("fetching from cache...")
+	return results, nil
+}
+
+func (s *UserStorage) retrieveCachedPosts(key string) []UserPostModel {
+	var users []UserPostModel
+
+	val, err := s.RCon.Get(context.Background(), key).Result()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return []UserPostModel{}
+	}
+
+	err = json.Unmarshal([]byte(val), &users)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return []UserPostModel{}
+	}
+
+	return users
 }
