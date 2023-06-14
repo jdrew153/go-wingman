@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -37,6 +39,12 @@ type UserPostModel struct {
 	
 }
 
+type NewPostRequest struct {
+	UserId string `json:"userId"`
+	ImageUrl string `json:"imageUrl"`
+	Caption string `json:"caption"`
+}
+
 // ----> Basically the new post service function is the constructor for the post service class
 
 func NewPostService(con *pgxpool.Pool) *PostStorage {
@@ -46,12 +54,14 @@ func NewPostService(con *pgxpool.Pool) *PostStorage {
 }
 
 
-func (p *PostStorage) CreatePost(post Post) (Post, error) {
+func (p *PostStorage) CreatePost(post NewPostRequest) (Post, error) {
 	var returnPost Post
+	postId := uuid.New().String()
+	timeStamp := time.Now().Unix()
 
 	err := p.Con.QueryRow(context.Background(), "insert into posts(post_id, user_id, image_url, time_stamp, caption) values($1, $2, $3, $4, $5) returning *", 
-	post.PostId, post.UserId, post.ImageUrl, 
-	post.TimeStamp, post.Caption).Scan(&returnPost.PostId, &returnPost.UserId, &returnPost.ImageUrl, 
+	postId, post.UserId, post.ImageUrl, 
+	timeStamp, post.Caption).Scan(&returnPost.PostId, &returnPost.UserId, &returnPost.ImageUrl, 
 		&returnPost.TimeStamp, &returnPost.Caption)
 
 	if err != nil {

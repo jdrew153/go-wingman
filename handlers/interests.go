@@ -17,8 +17,8 @@ func NewInterestHandler(service *services.InterestStorage) *InterestHandler {
 
 
 func (h *InterestHandler) CreateBatchInterests(ctx *fiber.Ctx) error {
-	var interests []services.Interest
-
+	var interests []string
+	userId := ctx.Params("userId")
 	err := ctx.BodyParser(&interests)
 
 	if err != nil {
@@ -27,5 +27,5 @@ func (h *InterestHandler) CreateBatchInterests(ctx *fiber.Ctx) error {
 		})
 	}
 
-	return ctx.Status(201).JSON(h.Service.BatchCreateInterests(interests))
+	return ctx.Status(201).JSON(h.Service.BatchCreateInterests(interests, userId))
 }

@@ -18,13 +18,11 @@ func CreateGodClient(lc fx.Lifecycle) *openai.Client {
 			if err != nil {
 				return err
 			}
-
 			return nil
 		}, 
 		OnStop: func(ctx context.Context) error {
 			return nil
 		},
 	})
-
 	return c
 }

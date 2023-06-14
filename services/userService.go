@@ -43,14 +43,20 @@ type NewUser struct {
 	Latitude         string `json:"latitude"`
 	Longitude        string `json:"longitude"`
 	PhoneNumber      string `json:"phoneNumber"`
-	TwoFactorEnabled string `json:"twoFactorEnabled"`
+	TwoFactorEnabled string   `json:"twoFactorEnabled"`
 	Bio              string `json:"bio"`
 	WingmanNickname  string `json:"wingmanNickname"`
 }
 
 type UserSessionResponse struct {
-	User    NewUser `json:"user"`
-	Session Session `json:"session"`
+	Id          string  `json:"id"`
+	Username    string  `json:"username"`
+	Email       string  `json:"email"`
+	Image       string  `json:"image"`
+	Latitude    string  `json:"latitude"`
+	Longitude   string  `json:"longitude"`
+	PhoneNumber string  `json:"phoneNumber"`
+	Session     Session `json:"session"`
 }
 
 func (s *UserStorage) CacheUser(data NewUser) (NewUser, error) {
@@ -63,6 +69,10 @@ func (s *UserStorage) CacheUser(data NewUser) (NewUser, error) {
 		fmt.Println("Error hashing password")
 		return NewUser{}, err
 	}
+
+	/////////  TODO - Add region to user schema, based
+	////////  on region, write user to another specific table** for that region
+	////////  so that feeds can be generated based on region
 
 	rUser := &NewUser{
 		Id:            id,
@@ -123,8 +133,8 @@ func (s *UserStorage) CacheUser(data NewUser) (NewUser, error) {
 
 }
 
-func (s *UserStorage) CreateNewUser(data NewUser) (NewUser, error) {
-	var user NewUser
+func (s *UserStorage) CreateNewUser(data NewUser) (UserSessionResponse, error) {
+	var user UserSessionResponse
 
 	hashedPass, err := lib.Hash(data.Password)
 	fmt.Println("hashedPass", hashedPass)
@@ -132,13 +142,14 @@ func (s *UserStorage) CreateNewUser(data NewUser) (NewUser, error) {
 
 	if err != nil {
 		fmt.Println("Error hashing password")
-		return NewUser{}, err
+		return UserSessionResponse{}, err
 	}
 
-	err = s.Con.QueryRow(context.Background(), "INSERT INTO authuser (id, username, password, email, email_verified, image, latitude, longitude) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, username, password, email, email_verified, image, latitude, longitude", id, data.Username, hashedPass, data.Email, data.EmailVerified, data.Image, data.Latitude, data.Longitude).Scan(&user.Id, &user.Username, &user.Password, &user.Email, &user.EmailVerified, &user.Image, &user.Latitude, &user.Longitude)
+	err = s.Con.QueryRow(context.Background(), "INSERT INTO authuser (id, username, password, email, email_verified, image, latitude, longitude, two_factor_enabled, bio, wingman_nickname) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, username, email, image, latitude, longitude", id, data.Username, hashedPass, data.Email, data.EmailVerified, data.Image, data.Latitude, data.Longitude, data.TwoFactorEnabled, data.Bio, data.WingmanNickname).Scan(&user.Id, &user.Username, &user.Email,
+		&user.Image, &user.Latitude, &user.Longitude)
 
 	if err != nil {
-		return NewUser{}, err
+		return UserSessionResponse{}, err
 	}
 
 	go func() {
@@ -169,14 +180,17 @@ func (s *UserStorage) CreateNewUser(data NewUser) (NewUser, error) {
 	return user, nil
 }
 
-func (s *UserStorage) GetAllUsers() ([]UserPostModel, error) {
+func (s *UserStorage) GetAllUsers(userId string) ([]UserPostModel, error) {
+
+	/// do not include the user who made the request in the results
+
 	results := s.retrieveCachedPosts("test")
 
 	if len(results) == 0 {
 		fmt.Println("fetching from db...")
 		users := make(map[string]*UserPostModel)
 
-		rows, err := s.Con.Query(context.Background(), "select * from authuser a inner join posts p on a.id = p.user_id")
+		rows, err := s.Con.Query(context.Background(), "select * from authuser a inner join posts p on a.id = p.user_id where a.id != $1", userId)
 
 		if err != nil {
 			return []UserPostModel{}, err
@@ -200,19 +214,19 @@ func (s *UserStorage) GetAllUsers() ([]UserPostModel, error) {
 				existingUser.Posts = append(existingUser.Posts, post)
 			} else {
 				users[user.Email] = &UserPostModel{
-					Id:                user.Id,
-					Username:          user.Username,
-					Password:          user.Password,
-					Email:             user.Email,
-					EmailVerified:     user.EmailVerified,
-					Image:             user.Image,
-					Latitude:          user.Latitude,
-					Longitude:         user.Longitude,
-					PhoneNumber:       user.PhoneNumber,
-					TwoFactorEnabled:  user.TwoFactorEnabled,
-					Bio:               user.Bio,
-					WingmanNickname:   user.WingmanNickname,
-					Posts:             []Post{post},
+					Id:               user.Id,
+					Username:         user.Username,
+					Password:         user.Password,
+					Email:            user.Email,
+					EmailVerified:    user.EmailVerified,
+					Image:            user.Image,
+					Latitude:         user.Latitude,
+					Longitude:        user.Longitude,
+					PhoneNumber:      user.PhoneNumber,
+					TwoFactorEnabled: user.TwoFactorEnabled,
+					Bio:              user.Bio,
+					WingmanNickname:  user.WingmanNickname,
+					Posts:            []Post{post},
 				}
 			}
 		}

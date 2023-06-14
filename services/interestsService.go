@@ -39,13 +39,17 @@ func (i *InterestStorage) writeNewInterest(interest Interest) (Interest, error) 
 	return returnInterest, nil
 }
 
-func (s *InterestStorage) BatchCreateInterests(interests []Interest) ([]Interest) {
+func (s *InterestStorage) BatchCreateInterests(interests []string, userId string) ([]Interest) {
 
 	var returnInterests []Interest
 
 	for i := 0; i < len(interests); i++ {
 		go func(x int)  {
-			interest, err := s.writeNewInterest(interests[x])
+			newInterest := Interest{
+				Interest: interests[x],
+				UserId: userId,
+			}
+			interest, err := s.writeNewInterest(newInterest)
 
 			if err != nil {
 				println(err.Error())

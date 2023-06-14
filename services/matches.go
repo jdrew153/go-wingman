@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,15 +53,18 @@ func (s *MatchStorage) CreateNewMatch(request MatchRequest) (MatchResponse, erro
 
 	var match MatchResponse
 
+	fmt.Println("Creating new match: ", request)
+
 	id := uuid.New().String()
 	timeStamp := time.Now().Unix()
 	matchStatus := Pending
 
 	err := s.Con.QueryRow(context.Background(), "INSERT INTO matches (match_id, user_id_a, user_id_b, match_status, time_stamp) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-		id, request.UserIdA, request.UserIdB, matchStatus, timeStamp, timeStamp).Scan(&match.MatchId, &match.UserIdA,
+		id, request.UserIdA, request.UserIdB, matchStatus, timeStamp).Scan(&match.MatchId, &match.UserIdA,
 		&match.UserIdB, &match.MatchStatus, &match.TimeStamp)
 
 	if err != nil {
+		fmt.Println("Error inserting match: ", err.Error())
 		return match, err
 	}
 
@@ -72,14 +76,23 @@ func (s *MatchStorage) FindAndUpdateMatchStatus(userIdA string, userIdB string, 
 
 	err := s.Con.QueryRow(
 		context.Background(),
-		"UPDATE matches SET match_status = $1 WHERE user_id_a = $2 AND user_id_b = $3 RETURNING *",
+		"UPDATE matches SET match_status = $1 WHERE user_id_a = $2 AND user_id_b = $3 RETURNING *", updatedStatus, userIdA, userIdB,
 	).Scan(&match.MatchId, &match.UserIdA, &match.UserIdB, &match.MatchStatus, &match.TimeStamp)
 
 	/// TODO - Send off notification to userIdA based on updated status value
 
 
 	if err != nil {
-		return match, err
+		fmt.Println("Error updating match status: ", err.Error())
+		// try other combo??? or eventually place match ids in the stored user defaults / context on the client 
+		err = s.Con.QueryRow(context.Background(), "UPDATE matches SET match_status = $1 WHERE user_id_a = $2 AND user_id_b = $3 RETURNING *", updatedStatus, userIdB, userIdA).Scan(&match.MatchId, &match.UserIdA, &match.UserIdB, &match.MatchStatus, &match.TimeStamp)
+
+		if err != nil {
+			fmt.Println("Error updating match status: ", err.Error())
+			return match, err
+		}
+
+		return match, nil
 	}
 
 	return match, nil

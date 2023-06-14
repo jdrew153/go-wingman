@@ -26,6 +26,8 @@ type NotificationRequest struct {
 	DeviceId string `json:"deviceId"`
 }
 
+// APNS portion of notification handling...
+
 func (s *NotificationStorage) CreateNotificationPair(pair NotificationRequest) (NotificationRequest, error) {
 	fmt.Println("pair", pair)
     if (pair.UserId == "" || pair.DeviceId == "") {
@@ -68,7 +70,6 @@ func (s *NotificationStorage) RetriveDeviceTokenForUser(userId string) (string, 
 
 }
 
-// APNS portion of notification handling...
 
 func (s *NotificationStorage) CreateAPNSNotification(message string, userId string) (*apns2.Response, error) {
 	deviceToken, err := s.RetriveDeviceTokenForUser(userId)

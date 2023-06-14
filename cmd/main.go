@@ -25,6 +25,8 @@ func newFiberServer(
 	wingmanHandler *handlers.WingmanHandler,
 	matchHandler *handlers.MatchHandler,
 	notificationHandler *handlers.NotificationHandler,
+	postHandler *handlers.PostHandler,
+	cfHandler *handlers.CFImageUploaderHandler,
 	middleware *middleware.SessionMiddlewareHandler,
 	) *fiber.App {
 
@@ -37,13 +39,19 @@ func newFiberServer(
 	})
 
 	group := app.Group("/api/v1/auth")
-	group.Post("/signup", userHandler.CreateUser)
+	
 	group.Post("/login", authHandler.AuthenticateUser)
-	group.Post("/batch-create-interests", interestHandler.CreateBatchInterests)
-
+	group.Post("/batch-create-interests/:userId", interestHandler.CreateBatchInterests)
+	app.Post("/api/v1/register", userHandler.CreateUser)
 
 	app.Post("/api/v1/wingman", wingmanHandler.CreateWingmanResponse)
 
+	app.Get("api/v1/image/upload", cfHandler.CreateUploadUrl)
+
+
+	// Posts Group
+	postsGroup := app.Group("/api/v1/posts")
+	postsGroup.Post("/new-post", postHandler.UploadNewPost)
 	
 	/// Notifications group
 	notificationsGroup := app.Group("/api/v1/notifications")
@@ -64,7 +72,7 @@ func newFiberServer(
 
 	/// Users group
 	usersGropup := app.Group("/api/v1/users")
-	usersGropup.Post("/feed", userHandler.FetchUsersFeed)
+	usersGropup.Post("/feed/:userId", userHandler.FetchUsersFeed)
 
 	//// Matches group
 	matchesGroup := app.Group("/api/v1/matches")
@@ -95,6 +103,7 @@ func main() {
 			god.CreateGodClient,
 			apns.CreateAPNSService,
 			lib.NewMailer,
+			lib.CreateHttpClient,
 			services.NewUserService,
 			services.NewSessionService,
 			services.InterestService,
@@ -103,6 +112,8 @@ func main() {
 			services.NewMatchService,
 			services.NewNotificationService,
 			services.NewWMNotificationStorage,
+			services.NewCFImageUploaderService,
+			services.NewPostService,
 			handlers.NewUserHandler,
 			handlers.NewAuthHandler,
 			handlers.NewInterestHandler,
@@ -110,6 +121,8 @@ func main() {
 			handlers.NewMatchHandler,
 			handlers.NewNotificationHandler,
 			handlers.NewWMNotificationHandler,
+			handlers.NewCFImageUploaderHandler,
+			handlers.NewPostHandler,
 			middleware.NewSessionMiddlewareHandler,
 		),
 		fx.Invoke(newFiberServer),

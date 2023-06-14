@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,6 +31,7 @@ type Session struct {
 }
 
 func (s *SessionStorage) CreateSession(userId string) (Session, error) {
+	fmt.Println("Creating session for user: ", userId)
 	var newSession Session
 	id := uuid.New().String()
 

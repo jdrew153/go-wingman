@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/jdrew153/services"
 )
@@ -27,7 +29,7 @@ func (h *MatchHandler) CreateMatch(ctx *fiber.Ctx) error {
 			"message": "Request body malformed",
 		})
 	}
-
+	fmt.Println(request)
 	match, err := h.MatchService.CreateNewMatch(request)
 
 	if err != nil {
@@ -55,6 +57,8 @@ func (h *MatchHandler) FindAndUpDateMatchHandler(ctx *fiber.Ctx) error {
 			"message": "Request body malformed",
 		})
 	}
+
+	fmt.Println(request)
 
 	match, err := h.MatchService.FindAndUpdateMatchStatus(request.UserIdA, request.UserIdB, request.MatchStatus)
 

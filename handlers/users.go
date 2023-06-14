@@ -31,7 +31,15 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 
 	newUser, err := h.Service.CreateNewUser(user)
 
+	if err != nil {
+		fmt.Println(err.Error())
+		return c.Status(500).JSON(fiber.Map{
+			"message": fmt.Sprintf("Error creating user: %s", err.Error()),
+		})
+	}
+
 	 go func() {
+		fmt.Println(newUser.Id)
 		newSession, err := h.SessionService.CreateSession(newUser.Id)
 
 		if err != nil {
@@ -47,7 +55,15 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		return c.SendString(err.Error())
 	}
 	
-	return c.Status(fiber.StatusCreated).JSON(services.UserSessionResponse{User: newUser, Session: <-s1})
+	return c.Status(fiber.StatusCreated).JSON(services.UserSessionResponse{
+		Id: newUser.Id,
+		Username: newUser.Username,
+		Email: newUser.Email,
+		Image: newUser.Image,
+		Latitude: newUser.Latitude,
+		Longitude: newUser.Longitude,
+		Session: <- s1,
+	})
 }
 
 
@@ -70,7 +86,9 @@ func (h *UserHandler) CacheUser(c *fiber.Ctx) error {
 
 func (h *UserHandler) FetchUsersFeed(ctx *fiber.Ctx) error {
 
-	users, err := h.Service.GetAllUsers()
+	userId := ctx.Params("userId")
+
+	users, err := h.Service.GetAllUsers(userId)
 
 	if err != nil {
 		return ctx.Status(500).JSON(fiber.Map{

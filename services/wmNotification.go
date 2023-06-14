@@ -49,7 +49,8 @@ const (
 
 /// -------------------  Notification ------------------- ///
 ///
-///		Take in notificaiton request, handle based on notification type
+///		Take in notification request, handle based 
+///     on notification type
 ///
 
 
