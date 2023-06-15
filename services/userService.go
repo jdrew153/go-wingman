@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -37,19 +38,19 @@ type NewUser struct {
 	Id               string `json:"id"`
 	Username         string `json:"username"`
 	Password         string `json:"password"`
-	Email            string `json:"email"`
+	Email            string `json:"email" validate:"email"`
 	EmailVerified    bool   `json:"emailVerified"`
 	Image            string `json:"image"`
 	Latitude         string `json:"latitude"`
 	Longitude        string `json:"longitude"`
 	PhoneNumber      string `json:"phoneNumber"`
-	TwoFactorEnabled string   `json:"twoFactorEnabled"`
+	TwoFactorEnabled string `json:"twoFactorEnabled"`
 	Bio              string `json:"bio"`
 	WingmanNickname  string `json:"wingmanNickname"`
 }
 
 type UserSessionResponse struct {
-	Id          string  `json:"id"`
+	Id          string  `json:"id" validate:"uuid4"`
 	Username    string  `json:"username"`
 	Email       string  `json:"email"`
 	Image       string  `json:"image"`
@@ -180,93 +181,30 @@ func (s *UserStorage) CreateNewUser(data NewUser) (UserSessionResponse, error) {
 	return user, nil
 }
 
-func (s *UserStorage) GetAllUsers(userId string) ([]UserPostModel, error) {
+type UserContext struct {
+	Id               string `json:"id"`
+	Username         string `json:"username"`
+	Password         string `json:"password"`
+	Email            string `json:"email"`
+	EmailVerified    bool   `json:"emailVerified"`
+	Image            string `json:"image"`
+	Latitude         string `json:"latitude"`
+	Longitude        string `json:"longitude"`
+	PhoneNumber      string `json:"phoneNumber"`
+	TwoFactorEnabled string `json:"twoFactorEnabled"`
+	Bio              string `json:"bio"`
+	WingmanNickname  string `json:"wingmanNickname"`
 
-	/// do not include the user who made the request in the results
+	Posts []Post `json:"posts"`
 
-	results := s.retrieveCachedPosts("test")
+	/// This specific flag is used to determine if this user has already sent the requesting user a match request.
 
-	if len(results) == 0 {
-		fmt.Println("fetching from db...")
-		users := make(map[string]*UserPostModel)
+	IsPotentialMatch bool `json:"isPotentialMatch"`
 
-		rows, err := s.Con.Query(context.Background(), "select * from authuser a inner join posts p on a.id = p.user_id where a.id != $1", userId)
-
-		if err != nil {
-			return []UserPostModel{}, err
-		}
-
-		for rows.Next() {
-			var user NewUser
-			var post Post
-
-			err = rows.Scan(&user.Id, &user.Username, &user.Password, &user.Email,
-				&user.EmailVerified, &user.Image, &user.Latitude, &user.Longitude, &user.PhoneNumber,
-				&user.TwoFactorEnabled, &user.Bio, &user.WingmanNickname, &post.PostId, &post.UserId,
-				&post.ImageUrl, &post.TimeStamp, &post.Caption)
-
-			if err != nil {
-				fmt.Println(err.Error())
-				return []UserPostModel{}, err
-			}
-
-			if existingUser, ok := users[user.Email]; ok {
-				existingUser.Posts = append(existingUser.Posts, post)
-			} else {
-				users[user.Email] = &UserPostModel{
-					Id:               user.Id,
-					Username:         user.Username,
-					Password:         user.Password,
-					Email:            user.Email,
-					EmailVerified:    user.EmailVerified,
-					Image:            user.Image,
-					Latitude:         user.Latitude,
-					Longitude:        user.Longitude,
-					PhoneNumber:      user.PhoneNumber,
-					TwoFactorEnabled: user.TwoFactorEnabled,
-					Bio:              user.Bio,
-					WingmanNickname:  user.WingmanNickname,
-					Posts:            []Post{post},
-				}
-			}
-		}
-
-		// Convert the map values to a slice
-		usersSlice := make([]UserPostModel, 0, len(users))
-		for _, user := range users {
-			usersSlice = append(usersSlice, *user)
-		}
-
-		d, err := json.Marshal(usersSlice)
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-
-		s.RCon.Set(context.Background(), "test", string(d), 0)
-
-		return usersSlice, nil
-	}
-
-	fmt.Println("fetching from cache...")
-	return results, nil
+	Interests []Interest `json:"interests"`
 }
 
-func (s *UserStorage) retrieveCachedPosts(key string) []UserPostModel {
-	var users []UserPostModel
-
-	val, err := s.RCon.Get(context.Background(), key).Result()
-
-	if err != nil {
-		fmt.Println(err.Error())
-		return []UserPostModel{}
-	}
-
-	err = json.Unmarshal([]byte(val), &users)
-
-	if err != nil {
-		fmt.Println(err.Error())
-		return []UserPostModel{}
-	}
-
-	return users
+type QuickMatchStatusCheck struct {
+	MatchStatus sql.NullString `json:"matchStatus"`
 }
+

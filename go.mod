@@ -9,7 +9,9 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/matthewhartstonge/argon2 v0.3.2
 	github.com/redis/go-redis/v9 v9.0.5
+	github.com/sashabaranov/go-openai v1.10.1
 	github.com/segmentio/kafka-go v0.4.40
+	github.com/sideshow/apns2 v0.23.0
 	go.uber.org/fx v1.19.3
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 )
@@ -29,10 +31,9 @@ require (
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/sashabaranov/go-openai v1.10.1 // indirect
 	github.com/savsgio/dictpool v0.0.0-20221023140959-7bf2e61cea94 // indirect
 	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
-	github.com/sideshow/apns2 v0.23.0 // indirect
+	github.com/stretchr/testify v1.8.2 // indirect
 	github.com/tinylib/msgp v1.1.8 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.47.0 // indirect

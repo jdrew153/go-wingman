@@ -74,6 +74,8 @@ func (s *MatchStorage) CreateNewMatch(request MatchRequest) (MatchResponse, erro
 func (s *MatchStorage) FindAndUpdateMatchStatus(userIdA string, userIdB string, updatedStatus string) (MatchResponse, error) {
 	var match MatchResponse
 
+	fmt.Println("Updating match status: ", userIdA, userIdB, updatedStatus)
+
 	err := s.Con.QueryRow(
 		context.Background(),
 		"UPDATE matches SET match_status = $1 WHERE user_id_a = $2 AND user_id_b = $3 RETURNING *", updatedStatus, userIdA, userIdB,
@@ -88,7 +90,7 @@ func (s *MatchStorage) FindAndUpdateMatchStatus(userIdA string, userIdB string, 
 		err = s.Con.QueryRow(context.Background(), "UPDATE matches SET match_status = $1 WHERE user_id_a = $2 AND user_id_b = $3 RETURNING *", updatedStatus, userIdB, userIdA).Scan(&match.MatchId, &match.UserIdA, &match.UserIdB, &match.MatchStatus, &match.TimeStamp)
 
 		if err != nil {
-			fmt.Println("Error updating match status: ", err.Error())
+			fmt.Println("Error updating match status x2 : ", err.Error())
 			return match, err
 		}
 

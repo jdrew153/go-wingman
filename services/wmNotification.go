@@ -46,6 +46,11 @@ const (
 	MatchNotification   = "matchNotification"
 )
 
+const (
+	Acknowledged = "acknowledged"
+	Unread = "unread"
+)
+
 
 /// -------------------  Notification ------------------- ///
 ///
