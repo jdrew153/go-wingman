@@ -270,6 +270,8 @@ func (s *UserStorage) retrieveCachedPosts(key string) []UserPostModel {
 	}
 
 	return users
+
+	// Hi
 }
 
 /// synchronous testing...

@@ -16,9 +16,8 @@ import (
 	"go.uber.org/fx"
 )
 
-
 func newFiberServer(
-	lc fx.Lifecycle, 
+	lc fx.Lifecycle,
 	userHandler *handlers.UserHandler,
 	interestHandler *handlers.InterestHandler,
 	authHandler *handlers.AuthHandler,
@@ -28,7 +27,7 @@ func newFiberServer(
 	postHandler *handlers.PostHandler,
 	cfHandler *handlers.CFImageUploaderHandler,
 	middleware *middleware.SessionMiddlewareHandler,
-	) *fiber.App {
+) *fiber.App {
 
 	app := fiber.New()
 	app.Use(cors.New())
@@ -39,7 +38,7 @@ func newFiberServer(
 	})
 
 	group := app.Group("/api/v1/auth")
-	
+
 	group.Post("/login", authHandler.AuthenticateUser)
 	group.Post("/batch-create-interests/:userId", interestHandler.CreateBatchInterests)
 	app.Post("/api/v1/register", userHandler.CreateUser)
@@ -48,11 +47,13 @@ func newFiberServer(
 
 	app.Get("api/v1/image/upload", cfHandler.CreateUploadUrl)
 
+	// synch testing
+	app.Get("/api/v1/sync/users/:userId", userHandler.TestUserContextAggreationHandler)
 
 	// Posts Group
 	postsGroup := app.Group("/api/v1/posts")
 	postsGroup.Post("/new-post", postHandler.UploadNewPost)
-	
+
 	/// Notifications group
 	notificationsGroup := app.Group("/api/v1/notifications")
 	notificationsGroup.Post("/new", notificationHandler.CreateNotificationPair)
@@ -61,14 +62,12 @@ func newFiberServer(
 
 	app.Use(middleware.AuthCheck)
 
-
 	/// Authenticated routes
 	app.Get("/protected", func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"message": "You are authenticated",
 		})
 	})
-
 
 	/// Users group
 	usersGropup := app.Group("/api/v1/users")
@@ -78,8 +77,6 @@ func newFiberServer(
 	matchesGroup := app.Group("/api/v1/matches")
 	matchesGroup.Post("/new", matchHandler.CreateMatch)
 	matchesGroup.Post("/update", matchHandler.FindAndUpDateMatchHandler)
-
-
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -93,6 +90,8 @@ func newFiberServer(
 
 	return app
 }
+
+//Hi
 
 func main() {
 	fx.New(
