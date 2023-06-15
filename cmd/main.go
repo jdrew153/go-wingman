@@ -25,6 +25,8 @@ func newFiberServer(
 	matchHandler *handlers.MatchHandler,
 	notificationHandler *handlers.NotificationHandler,
 	postHandler *handlers.PostHandler,
+	asyncHandler *handlers.AsyncHandler,
+	messageHandler *handlers.MessageHandler,
 	cfHandler *handlers.CFImageUploaderHandler,
 	middleware *middleware.SessionMiddlewareHandler,
 ) *fiber.App {
@@ -50,6 +52,9 @@ func newFiberServer(
 	// synch testing
 	app.Get("/api/v1/sync/users/:userId", userHandler.TestUserContextAggreationHandler)
 
+	// async testing
+	app.Get("/api/v1/async/users/:userId", asyncHandler.TestableAsyncFunction)
+
 	// Posts Group
 	postsGroup := app.Group("/api/v1/posts")
 	postsGroup.Post("/new-post", postHandler.UploadNewPost)
@@ -59,6 +64,11 @@ func newFiberServer(
 	notificationsGroup.Post("/new", notificationHandler.CreateNotificationPair)
 	notificationsGroup.Get("/user/:userId", notificationHandler.FetchDeviceTokenForUser)
 	notificationsGroup.Post("/send/:userId", notificationHandler.SendAPNSNotification)
+
+	// Messaging Group
+	messageGroup := app.Group("/api/v1/messages")
+	messageGroup.Post("/new-message", messageHandler.SendMessageComplete)
+	messageGroup.Get("/:userId", messageHandler.GetMessagesForUser)
 
 	app.Use(middleware.AuthCheck)
 
@@ -70,8 +80,8 @@ func newFiberServer(
 	})
 
 	/// Users group
-	usersGropup := app.Group("/api/v1/users")
-	usersGropup.Post("/feed/:userId", userHandler.FetchUsersFeed)
+	usersGroup := app.Group("/api/v1/users")
+	usersGroup.Post("/feed/:userId", userHandler.FetchUsersFeed)
 
 	//// Matches group
 	matchesGroup := app.Group("/api/v1/matches")
@@ -113,6 +123,8 @@ func main() {
 			services.NewWMNotificationStorage,
 			services.NewCFImageUploaderService,
 			services.NewPostService,
+			services.NewAsyncService,
+			services.NewMessageService,
 			handlers.NewUserHandler,
 			handlers.NewAuthHandler,
 			handlers.NewInterestHandler,
@@ -122,6 +134,8 @@ func main() {
 			handlers.NewWMNotificationHandler,
 			handlers.NewCFImageUploaderHandler,
 			handlers.NewPostHandler,
+			handlers.NewAsyncHandler,
+			handlers.NewMessageHandler,
 			middleware.NewSessionMiddlewareHandler,
 		),
 		fx.Invoke(newFiberServer),
