@@ -115,14 +115,14 @@ func (h *AsyncHandler) TestableAsyncFunction(ctx *fiber.Ctx) error {
 	fmt.Println("list after first filter", returnList)
 
 	if len(list3) > 0 {
-		for _, user := range list1 {
+		for _, user := range returnList {
 			found := false
 			if _, ok := list3[user.Id]; ok {
+				println("found user in list..")
 				found = true
 			}
-			if !found {
-
-				returnList[user.Id] = user
+			if found {
+				delete(returnList, user.Id)
 			}
 		}
 	} else {

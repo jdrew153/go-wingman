@@ -125,6 +125,7 @@ func (s *AsyncService) FilterSettledMatchRequestsAsync(ctx context.Context, user
 	case err := <-errorChan:
 		return nil, err
 	case settledMatchRequests := <-settledMatchRequestChan:
+		fmt.Println("settled matches..", settledMatchRequests)
 		return settledMatchRequests, nil
 	}
 
