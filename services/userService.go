@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"strings"
 
 	"github.com/google/uuid"
@@ -43,7 +44,7 @@ type NewUser struct {
 	Latitude         string `json:"latitude"`
 	Longitude        string `json:"longitude"`
 	PhoneNumber      string `json:"phoneNumber"`
-	TwoFactorEnabled string   `json:"twoFactorEnabled"`
+	TwoFactorEnabled string `json:"twoFactorEnabled"`
 	Bio              string `json:"bio"`
 	WingmanNickname  string `json:"wingmanNickname"`
 }
@@ -269,4 +270,336 @@ func (s *UserStorage) retrieveCachedPosts(key string) []UserPostModel {
 	}
 
 	return users
+}
+
+/// synchronous testing...
+
+func (s *UserStorage) SynchronousUserContextAggregation(userId string) ([]UserContext, error) {
+
+	// getting all users,,,
+
+	allUsers, err := CreateLargeListOfUsers(userId, s.Con)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var hydratedUsers []UserContext
+
+	for _, user := range allUsers {
+		result, err := CreateUserContext(user.Id, s.Con)
+
+		if err != nil {
+			return nil, err
+		}
+
+		hydratedUsers = append(hydratedUsers, result)
+	}
+
+	finalResults, err := FilterUsersWhoUserHasSentMatchRequestTo(hydratedUsers, userId, s.Con)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var fullyCheckedResults []UserContext
+
+	for _, finalUser := range finalResults {
+
+		user, err := PotentialMatchFlagCheck(&finalUser, userId, s.Con)
+
+		if err != nil {
+			return nil, err
+		}
+
+		fullyCheckedResults = append(fullyCheckedResults, *user)
+
+	}
+
+	cleanedResults, err := FilterSettledMatchRequest(fullyCheckedResults, userId, s.Con)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return cleanedResults, nil
+
+}
+
+type UserContext struct {
+	Id               string `json:"id"`
+	Username         string `json:"username"`
+	Password         string `json:"password"`
+	Email            string `json:"email"`
+	EmailVerified    bool   `json:"emailVerified"`
+	Image            string `json:"image"`
+	Latitude         string `json:"latitude"`
+	Longitude        string `json:"longitude"`
+	PhoneNumber      string `json:"phoneNumber"`
+	TwoFactorEnabled string `json:"twoFactorEnabled"`
+	Bio              string `json:"bio"`
+	WingmanNickname  string `json:"wingmanNickname"`
+
+	IsPotentialMatch bool `json:"isPotentialMatch"`
+
+	Posts []Post `json:"posts"`
+
+	Interests []Interest `json:"interests"`
+}
+
+func CreateUserContext(userId string, con *pgxpool.Pool) (UserContext, error) {
+	var user NewUser
+
+	err := con.QueryRow(context.Background(), `
+	select * from authuser where id = $1
+	`, userId).Scan(
+		&user.Id,
+		&user.Username,
+		&user.Password,
+		&user.Email,
+		&user.EmailVerified,
+		&user.Image,
+		&user.Latitude,
+		&user.Longitude,
+		&user.PhoneNumber,
+		&user.TwoFactorEnabled,
+		&user.Bio,
+		&user.WingmanNickname,
+	)
+
+	if err != nil {
+		return UserContext{}, err
+	}
+
+	var posts []Post
+
+	rows, err := con.Query(context.Background(), `
+	select * from posts where user_id = $1
+	`, userId)
+
+	if err != nil {
+		return UserContext{}, nil
+	}
+
+	for rows.Next() {
+		var post Post
+		err = rows.Scan(&post.PostId,
+			&post.UserId, &post.ImageUrl,
+			&post.TimeStamp, &post.Caption)
+
+		if err != nil {
+			return UserContext{}, err
+		}
+
+		posts = append(posts, post)
+	}
+
+	var interests []Interest
+
+	rows, err = con.Query(context.Background(), `
+	select * from interests where user_id = $1
+	`, userId)
+
+	if err != nil {
+		return UserContext{}, err
+	}
+
+	for rows.Next() {
+		var interest Interest
+		err = rows.Scan(&interest.InterestId, &interest.UserId, &interest.Interest)
+		if err != nil {
+			return UserContext{}, err
+		}
+
+		interests = append(interests, interest)
+	}
+
+	return UserContext{
+		Id:               user.Id,
+		Username:         user.Username,
+		Password:         user.Password,
+		Email:            user.Email,
+		EmailVerified:    user.EmailVerified,
+		Image:            user.Image,
+		Latitude:         user.Latitude,
+		Longitude:        user.Longitude,
+		PhoneNumber:      user.PhoneNumber,
+		TwoFactorEnabled: user.TwoFactorEnabled,
+		Bio:              user.Bio,
+		WingmanNickname:  user.WingmanNickname,
+		IsPotentialMatch: false,
+		Posts:            posts,
+		Interests:        interests,
+	}, nil
+
+}
+
+//
+// Creating the list of users.. for testing...
+//
+
+func CreateLargeListOfUsers(userId string, con *pgxpool.Pool) ([]NewUser, error) {
+	var users []NewUser
+
+	rows, err := con.Query(context.Background(), `
+		select * from authuser where id != $1
+	`, userId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var user NewUser
+		err = rows.Scan(
+			&user.Id,
+			&user.Username,
+			&user.Password,
+			&user.Email,
+			&user.EmailVerified,
+			&user.Image,
+			&user.Latitude,
+			&user.Longitude,
+			&user.PhoneNumber,
+			&user.TwoFactorEnabled,
+			&user.Bio,
+			&user.WingmanNickname,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		users = append(users, user)
+	}
+
+	return users, err
+}
+
+//
+//  Given a huge list of users, filter out the ones you've already sent a match request to
+//
+//
+
+func FilterUsersWhoUserHasSentMatchRequestTo(users []UserContext, userId string, con *pgxpool.Pool) ([]UserContext, error) {
+
+	var userIds []string
+
+	rows, err := con.Query(context.Background(), `
+		select user_id_b from matches where user_id_a = $1 
+	`, userId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var userId string
+		err = rows.Scan(&userId)
+
+		if err != nil {
+			return nil, err
+		}
+		userIds = append(userIds, userId)
+	}
+
+	var returnUsers []UserContext
+	fmt.Println(userIds)
+	if len(userIds) > 0 {
+		for _, user := range users {
+			fmt.Println("checking user ", user.Email)
+			isFound := false
+			for _, alreadyInteractedUser := range userIds {
+				if alreadyInteractedUser == user.Id {
+					fmt.Println("I have sent a match request to", alreadyInteractedUser)
+					isFound = true
+					break
+				}
+			}
+
+			if isFound {
+				//
+				//  Do not break when is found...
+				//
+				println("skipping")
+			} else {
+				returnUsers = append(returnUsers, user)
+			}
+		}
+	} else {
+		return users, nil
+	}
+
+	return returnUsers, nil
+}
+
+///
+///  Checking to see if the user in question has sent me a match request. If so, change potential match to true
+///  on the hydrated user
+///
+
+func PotentialMatchFlagCheck(user *UserContext, userId string, con *pgxpool.Pool) (*UserContext, error) {
+	fmt.Println("user id in question", user.Id)
+	fmt.Println("requesting user", userId)
+	var potentialMatchUserID string
+
+	println("potential match string ", potentialMatchUserID)
+
+	err := con.QueryRow(context.Background(), `
+		select user_id_a from matches where (user_id_b = $1 and user_id_a = $2 and match_status != 'mutual')	
+	`, userId, user.Id).Scan(&potentialMatchUserID)
+
+	if err != nil {
+		fmt.Println("failed at the first error in potentialmatchflagcheck func")
+
+		// i think it is okay to send back user at this point if there are no users found
+		potentialMatchUserID = ""
+		return user, nil
+	}
+
+	fmt.Println(potentialMatchUserID)
+
+	if len(potentialMatchUserID) > 0 {
+		fmt.Println("updating flag status")
+		potentialMatchUserID = ""
+		user.IsPotentialMatch = true
+		return user, nil
+	}
+
+	// Potential match will remain false and will return reference to the passed in user
+	fmt.Println("returning changed flag")
+	potentialMatchUserID = ""
+	return user, nil
+
+}
+
+//
+//  Filter out already settled matches
+//
+
+func FilterSettledMatchRequest(users []UserContext, userId string, con *pgxpool.Pool) ([]UserContext, error) {
+	fmt.Println("final check on users --->", len(users))
+	var returnUsers []UserContext
+
+	for _, user := range users {
+		var matchId string
+		err := con.QueryRow(context.Background(), `
+		select match_id from matches where (user_id_a = $1 and user_id_b = $2 and match_status = 'mutual') or (user_id_a = $2 and user_id_b = $1 and match_status = 'mutual')
+	`, user.Id, userId).Scan(&matchId)
+
+		if err != nil {
+			fmt.Println(err)
+			returnUsers = append(returnUsers, user)
+		}
+
+	}
+
+	if len(returnUsers) > 0 {
+		fmt.Println("returning return users")
+		return returnUsers, nil
+	} else {
+		fmt.Println("returning unaffected list")
+		return users, nil
+	}
+
 }

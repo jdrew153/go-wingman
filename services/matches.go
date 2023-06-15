@@ -81,10 +81,9 @@ func (s *MatchStorage) FindAndUpdateMatchStatus(userIdA string, userIdB string, 
 
 	/// TODO - Send off notification to userIdA based on updated status value
 
-
 	if err != nil {
 		fmt.Println("Error updating match status: ", err.Error())
-		// try other combo??? or eventually place match ids in the stored user defaults / context on the client 
+		// try other combo??? or eventually place match ids in the stored user defaults / context on the client
 		err = s.Con.QueryRow(context.Background(), "UPDATE matches SET match_status = $1 WHERE user_id_a = $2 AND user_id_b = $3 RETURNING *", updatedStatus, userIdB, userIdA).Scan(&match.MatchId, &match.UserIdA, &match.UserIdB, &match.MatchStatus, &match.TimeStamp)
 
 		if err != nil {
