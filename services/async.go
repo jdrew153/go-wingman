@@ -188,7 +188,7 @@ func (s *AsyncService) CreateUserContextAsync(ctx context.Context, user NewUser)
 		for rows.Next() {
 			var interest Interest
 
-			err = rows.Scan(&interest.InterestId, &interest.UserId, &interest.Interest)
+			err = rows.Scan(&interest.InterestId, &interest.Interest, &interest.UserId)
 
 			if err != nil {
 				errorChan <- err

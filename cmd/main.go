@@ -27,6 +27,7 @@ func newFiberServer(
 	postHandler *handlers.PostHandler,
 	asyncHandler *handlers.AsyncHandler,
 	messageHandler *handlers.MessageHandler,
+	wmmessageHandler *handlers.WMMessagingHandler,
 	cfHandler *handlers.CFImageUploaderHandler,
 	middleware *middleware.SessionMiddlewareHandler,
 ) *fiber.App {
@@ -49,7 +50,7 @@ func newFiberServer(
 
 	app.Get("api/v1/image/upload", cfHandler.CreateUploadUrl)
 
-	// synch testing
+	// sync testing
 	app.Get("/api/v1/sync/users/:userId", userHandler.TestUserContextAggreationHandler)
 
 	// async testing
@@ -69,6 +70,11 @@ func newFiberServer(
 	messageGroup := app.Group("/api/v1/messages")
 	messageGroup.Post("/new-message", messageHandler.SendMessageComplete)
 	messageGroup.Get("/:userId", messageHandler.GetMessagesForUser)
+
+	// Testing sql backed messaging
+	wmMessageGroup := app.Group("/api/v1/wmMessages")
+	wmMessageGroup.Post("/new", wmmessageHandler.CreateNewMessageWithContext)
+	wmMessageGroup.Get("/conversations/:userId", wmmessageHandler.GetConversationsForUser)
 
 	app.Use(middleware.AuthCheck)
 
@@ -125,6 +131,7 @@ func main() {
 			services.NewPostService,
 			services.NewAsyncService,
 			services.NewMessageService,
+			services.NewWMMessagingServices,
 			handlers.NewUserHandler,
 			handlers.NewAuthHandler,
 			handlers.NewInterestHandler,
@@ -136,6 +143,7 @@ func main() {
 			handlers.NewPostHandler,
 			handlers.NewAsyncHandler,
 			handlers.NewMessageHandler,
+			handlers.NewWMMessagingHandler,
 			middleware.NewSessionMiddlewareHandler,
 		),
 		fx.Invoke(newFiberServer),

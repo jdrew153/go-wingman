@@ -17,12 +17,16 @@ func NewWingmanService(g *openai.Client) *WingmanService {
 	}
 }
 
-func (s *WingmanService) CreateWingmanResponse(messages []openai.ChatCompletionMessage) openai.ChatCompletionMessage {
+func (s *WingmanService) CreateWingmanResponse(messages []openai.ChatCompletionMessage, userContext UserContext) openai.ChatCompletionMessage {
+
+	fmt.Println(userContext)
 
 	systemMessages := []openai.ChatCompletionMessage{{
 
-		Role:    openai.ChatMessageRoleSystem,
-		Content: "You are a helpful dating app assistant who can provide pickup lines and provide advice to a user when asked.",
+		Role: openai.ChatMessageRoleSystem,
+		Content: "You are a helpful dating app assistant who can provide pickup lines and provide advice to a user when asked. " +
+			fmt.Sprintf("Here is some helpful context for the user. Location: latitude - %s, longitude - %s. Username - %s ",
+				userContext.Latitude, userContext.Longitude, userContext.Username),
 	},
 	}
 

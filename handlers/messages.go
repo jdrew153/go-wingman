@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/jdrew153/services"
 )
@@ -26,6 +27,8 @@ func (h *MessageHandler) SendMessageComplete(ctx *fiber.Ctx) error {
 		})
 	}
 
+	fmt.Println(messageRequest)
+
 	err = h.Service.CreateConversationKeyForUser(messageRequest.UserIdA, messageRequest.UserIdB)
 
 	if err != nil {
@@ -34,7 +37,7 @@ func (h *MessageHandler) SendMessageComplete(ctx *fiber.Ctx) error {
 		})
 	}
 
-	err = h.Service.SendNewMessage(messageRequest)
+	newMessage, err := h.Service.SendNewMessage(messageRequest)
 
 	if err != nil {
 		return ctx.Status(500).JSON(&fiber.Map{
@@ -42,7 +45,7 @@ func (h *MessageHandler) SendMessageComplete(ctx *fiber.Ctx) error {
 		})
 	}
 
-	return ctx.SendStatus(201)
+	return ctx.Status(201).JSON(newMessage)
 
 }
 

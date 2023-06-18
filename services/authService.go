@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jdrew153/lib"
@@ -28,15 +29,15 @@ type AuthenticationModel struct {
 	Password string `json:"password"`
 }
 
-
-
 type AuthenticatedModelResponse struct {
-	Id string `json:"id"`
-	Username string `json:"username"`
-	Email string `json:"email"`
-	Image string `json:"image"`
-	Latitude string `json:"latitude"`
+	Id        string `json:"id"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	Image     string `json:"image"`
+	Latitude  string `json:"latitude"`
 	Longitude string `json:"longitude"`
+
+	Interests []Interest `json:"interests"`
 
 	Session Session `json:"session"`
 }
@@ -63,6 +64,28 @@ func (s *AuthService) AuthenticateUser(auth AuthenticationModel) (AuthenticatedM
 		return AuthenticatedModelResponse{}, errors.New("invalid password")
 	}
 
+	var interests []Interest
+
+	rows, err := s.Con.Query(context.Background(), `
+		select * from interests where user_id = $1	
+	`, user.Id)
+
+	if err != nil {
+		fmt.Println("user has no interests set...")
+	}
+
+	for rows.Next() {
+		var interest Interest
+
+		err = rows.Scan(&interest.InterestId, &interest.Interest, &interest.UserId)
+
+		if err != nil {
+			fmt.Println("err...", err.Error())
+		}
+
+		interests = append(interests, interest)
+	}
+
 	session, err := s.SessionService.CreateSession(user.Id)
 
 	if err != nil {
@@ -71,12 +94,13 @@ func (s *AuthService) AuthenticateUser(auth AuthenticationModel) (AuthenticatedM
 	}
 
 	return AuthenticatedModelResponse{
-		Id: user.Id,
-		Username: user.Username,
-		Email: user.Email,
-		Image: user.Image,
-		Latitude: user.Latitude,
+		Id:        user.Id,
+		Username:  user.Username,
+		Email:     user.Email,
+		Image:     user.Image,
+		Latitude:  user.Latitude,
 		Longitude: user.Longitude,
-		Session: session,
+		Interests: interests,
+		Session:   session,
 	}, nil
 }

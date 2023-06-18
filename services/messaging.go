@@ -88,35 +88,34 @@ func (s *MessageService) CreateConversationKeyForUser(userIdA string, userIdB st
 //  update the message list with the new message...
 //
 
-func (s *MessageService) SendNewMessage(message MessageRequestModel) error {
+func (s *MessageService) SendNewMessage(message MessageRequestModel) (MessageResponseModel, error) {
 	key := fmt.Sprintf("messages-%s-%s", message.UserIdA, message.UserIdB)
-
-	//exists, err := s.RCon.Exists(context.Background(), key).Result()
-	//if err != nil {
-	//	return err
-	//}
 
 	// Create the message
 	response := MessageResponseModel{
-		MessageId: uuid.NewString(),
-		UserIdA:   message.UserIdA,
-		UserIdB:   message.UserIdB,
-		Content:   message.Content,
-		Timestamp: time.Now().UnixMilli(),
+		MessageId:       uuid.NewString(),
+		UserIdA:         message.UserIdA,
+		UserIdB:         message.UserIdB,
+		UserIdBImageUrl: message.UserIdBImageUrl,
+		UserIdBUsername: message.UserIdBUsername,
+		Content:         message.Content,
+		Timestamp:       time.Now().UnixMilli(),
 	}
 
 	// Marshal the message to JSON
 	d, err := json.Marshal(response)
 	if err != nil {
-		return err
+		return MessageResponseModel{}, err
 	}
 
 	err = s.RCon.RPush(context.Background(), key, d).Err()
 	if err != nil {
-		return err
+		return MessageResponseModel{}, err
 	}
 
-	return nil
+	fmt.Println(response)
+
+	return response, nil
 }
 
 //
