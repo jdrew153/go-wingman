@@ -75,6 +75,7 @@ func newFiberServer(
 	wmMessageGroup := app.Group("/api/v1/wmMessages")
 	wmMessageGroup.Post("/new", wmmessageHandler.CreateNewMessageWithContext)
 	wmMessageGroup.Get("/conversations/:userId", wmmessageHandler.GetConversationsForUser)
+	wmMessageGroup.Patch("/conversations/ack", wmmessageHandler.AckConversation)
 
 	app.Use(middleware.AuthCheck)
 

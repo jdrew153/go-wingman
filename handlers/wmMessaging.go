@@ -64,3 +64,25 @@ func (h *WMMessagingHandler) GetConversationsForUser(ctx *fiber.Ctx) error {
 
 	return ctx.JSON(results)
 }
+
+func (h *WMMessagingHandler) AckConversation(ctx *fiber.Ctx) error {
+	var ackRequest services.AckStatusRequestModel
+
+	err := ctx.BodyParser(&ackRequest)
+
+	if err != nil {
+		return ctx.Status(422).JSON(&fiber.Map{
+			"message": "Malformed request body " + err.Error(),
+		})
+	}
+
+	ackResult, err := h.Service.UpdateAckStatusForConversation(ackRequest)
+
+	if err != nil || !ackResult {
+		return ctx.Status(500).JSON(&fiber.Map{
+			"message": "Something went wrong... " + err.Error(),
+		})
+	}
+
+	return ctx.SendStatus(200)
+}

@@ -22,6 +22,11 @@ type ConversationModel struct {
 
 	// lets use last message as the id of the message, so we can get the actual message
 	LastMessage string `json:"lastMessage"`
+
+	AckStatusUserA bool `json:"ackStatusUserA"`
+	AckStatusUserB bool `json:"ackStatusUserB"`
+
+
 }
 
 type WMMessageRequest struct {
@@ -87,8 +92,8 @@ func (s *WMMessagingService) SearchAndUpsertANewConversation(userIdA string, use
 
 		err := s.Con.QueryRow(context.Background(), `
 			insert into conversations (conversation_id, user_id_a, user_id_b, last_message)
-			values ($1, $2, $3, '') returning conversation_id
-		`, id, userIdA, userIdB).Scan(&newConversationId)
+			values ($1, $2, $3, $4, $5, $6) returning conversation_id
+		`, id, userIdA, userIdB, false, false).Scan(&newConversationId)
 
 		if err != nil {
 			fmt.Println("failed trying to create new conversation entry")
@@ -153,6 +158,9 @@ type HydratedConversationModel struct {
 	// lets use last message as the id of the message, so we can get the actual message
 	LastMessage string `json:"lastMessage"`
 
+	AckStatusUserA bool `json:"ackStatusUserA"`
+	AckStatusUserB bool `json:"ackStatusUserB"`
+
 	Messages []WMMessageResponse `json:"messages"`
 }
 
@@ -171,7 +179,8 @@ func (s *WMMessagingService) FetchConversationsForUser(userId string) ([]Hydrate
 	for rows.Next() {
 		var conversation ConversationModel
 
-		err = rows.Scan(&conversation.ConversationId, &conversation.UserIdA, &conversation.UserIdB, &conversation.LastMessage)
+		err = rows.Scan(&conversation.ConversationId, &conversation.UserIdA, &conversation.UserIdB, 
+			&conversation.LastMessage, &conversation.AckStatusUserA, &conversation.AckStatusUserB)
 
 		if err != nil {
 			return nil, err
@@ -255,9 +264,39 @@ func (s *WMMessagingService) FetchConversationsForUser(userId string) ([]Hydrate
 			UserA:          userA,
 			UserB:          userB,
 			LastMessage:    conversation.LastMessage,
+			AckStatusUserA: conversation.AckStatusUserA,
+			AckStatusUserB: conversation.AckStatusUserB,
 			Messages:       messages,
+			
 		})
 	}
 
 	return conversations, nil
+}
+
+type AckStatusRequestModel struct {
+	UserId string `json:"userId"`
+	ConversationId string `json:"conversationId"`
+}
+
+
+func (s *WMMessagingService) UpdateAckStatusForConversation(ackRequest AckStatusRequestModel) (bool, error) {
+
+	var result bool
+
+	
+
+	err := s.Con.QueryRow(context.Background(), `
+
+		select update_ack_status($1, $2)
+
+	`,ackRequest.UserId, ackRequest.ConversationId ).Scan(&result)
+
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return false, err
+	}
+
+	return result, nil
 }
