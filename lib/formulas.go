@@ -1,6 +1,11 @@
 package lib
 
-import "math"
+import (
+	"math"
+
+	"github.com/adrg/strutil"
+	"github.com/adrg/strutil/metrics"
+)
 
 func GetDistanceFromCoords(lat1 float64, long1 float64, lat2 float64, long2 float64) float64 {
 	lat1 = math.Pi * lat1 / 180
@@ -20,4 +25,8 @@ func GetDistanceFromCoords(lat1 float64, long1 float64, lat2 float64, long2 floa
 
 	return distance
 
+}
+
+func CalcTextSimilarity(text1 string, text2 string) float64 {
+	return strutil.Similarity(text1, text2, metrics.NewHamming())
 }
