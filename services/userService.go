@@ -159,7 +159,7 @@ func (s *UserStorage) CreateNewUser(data NewUser) (UserSessionResponse, error) {
 
 	go func() {
 
-		json, err := json.Marshal(data)
+		val, err := json.Marshal(data)
 
 		if err != nil {
 			println("err marshalling data for kafka")
@@ -168,7 +168,7 @@ func (s *UserStorage) CreateNewUser(data NewUser) (UserSessionResponse, error) {
 
 		msg := kafka.Message{
 			Key:   []byte(fmt.Sprintf("%s-%s", id, data.Email)),
-			Value: json,
+			Value: val,
 		}
 
 		err = s.KP.WriteMessages(context.Background(), msg)
@@ -387,7 +387,7 @@ func CreateUserContext(userId string, con *pgxpool.Pool) (UserContext, error) {
 		var post Post
 		err = rows.Scan(&post.PostId,
 			&post.UserId, &post.ImageUrl,
-			&post.TimeStamp, &post.Caption)
+			&post.TimeStamp, &post.Caption, &post.Latitude, &post.Longitude, &post.LocationName)
 
 		if err != nil {
 			return UserContext{}, err

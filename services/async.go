@@ -159,7 +159,7 @@ func (s *AsyncService) CreateUserContextAsync(ctx context.Context, user NewUser)
 			var post Post
 			err = rows.Scan(&post.PostId,
 				&post.UserId, &post.ImageUrl,
-				&post.TimeStamp, &post.Caption)
+				&post.TimeStamp, &post.Caption, &post.Latitude, &post.Longitude, &post.LocationName)
 
 			if err != nil {
 				errorChan <- err

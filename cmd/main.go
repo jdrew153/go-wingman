@@ -59,6 +59,8 @@ func newFiberServer(
 	// Posts Group
 	postsGroup := app.Group("/api/v1/posts")
 	postsGroup.Post("/new-post", postHandler.UploadNewPost)
+	postsGroup.Get("/:userId", postHandler.GetPostsByUserIdHandler)
+	postsGroup.Post("/location", postHandler.GetPostsByLocationHandler)
 
 	/// Notifications group
 	notificationsGroup := app.Group("/api/v1/notifications")
@@ -75,7 +77,7 @@ func newFiberServer(
 	wmMessageGroup := app.Group("/api/v1/wmMessages")
 	wmMessageGroup.Post("/new", wmmessageHandler.CreateNewMessageWithContext)
 	wmMessageGroup.Get("/conversations/:userId", wmmessageHandler.GetConversationsForUser)
-	wmMessageGroup.Patch("/conversations/ack", wmmessageHandler.AckConversation)
+	wmMessageGroup.Post("/conversations/ack", wmmessageHandler.AckConversation)
 
 	app.Use(middleware.AuthCheck)
 
@@ -116,6 +118,7 @@ func main() {
 			db.CreateNeonConnection,
 			db.CreateRedisConnection,
 			db.CreateKafkaProducer,
+			db.CreatePusherClient,
 			god.CreateGodClient,
 			apns.CreateAPNSService,
 			lib.NewMailer,
@@ -133,6 +136,7 @@ func main() {
 			services.NewAsyncService,
 			services.NewMessageService,
 			services.NewWMMessagingServices,
+			services.NewPusherService,
 			handlers.NewUserHandler,
 			handlers.NewAuthHandler,
 			handlers.NewInterestHandler,

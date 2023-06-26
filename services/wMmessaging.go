@@ -3,16 +3,18 @@ package services
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
-	"sync"
-	"time"
 )
 
 type WMMessagingService struct {
-	Con  *pgxpool.Pool
-	Rcon *redis.Client
+	Con    *pgxpool.Pool
+	Rcon   *redis.Client
+	Pusher *PusherService
 }
 
 type ConversationModel struct {
@@ -25,8 +27,6 @@ type ConversationModel struct {
 
 	AckStatusUserA bool `json:"ackStatusUserA"`
 	AckStatusUserB bool `json:"ackStatusUserB"`
-
-
 }
 
 type WMMessageRequest struct {
@@ -47,10 +47,11 @@ type WMMessageResponse struct {
 	TimeStamp      int64  `json:"timeStamp"`
 }
 
-func NewWMMessagingServices(p *pgxpool.Pool, r *redis.Client) *WMMessagingService {
+func NewWMMessagingServices(p *pgxpool.Pool, r *redis.Client, push *PusherService) *WMMessagingService {
 	return &WMMessagingService{
-		Con:  p,
-		Rcon: r,
+		Con:    p,
+		Rcon:   r,
+		Pusher: push,
 	}
 }
 
@@ -127,11 +128,17 @@ func (s *WMMessagingService) AddNewMessageToConversation(message WMMessageReques
 		return WMMessageResponse{}, err
 	}
 
+	err = s.Pusher.Trigger(fmt.Sprintf("messages-%s", messageResponse.ReceiverId), "new-message", messageResponse)
+
+	if err != nil {
+		return WMMessageResponse{}, nil
+	}
+
 	var conversation ConversationModel
 
 	err = s.Con.QueryRow(context.Background(), `
-		update conversations set last_message = $2 where conversation_id = $1
-	`, messageResponse.ConversationId, messageResponse.MessageId).Scan(&conversation.ConversationId, &conversation.UserIdA, &conversation.UserIdB,
+		update conversations set last_message = $2 and ack_status_user_a = $3 and ack_status_user_b = $3 where conversation_id = $1
+	`, messageResponse.ConversationId, messageResponse.MessageId, false).Scan(&conversation.ConversationId, &conversation.UserIdA, &conversation.UserIdB,
 		&conversation.LastMessage)
 
 	if err != nil {
@@ -179,7 +186,7 @@ func (s *WMMessagingService) FetchConversationsForUser(userId string) ([]Hydrate
 	for rows.Next() {
 		var conversation ConversationModel
 
-		err = rows.Scan(&conversation.ConversationId, &conversation.UserIdA, &conversation.UserIdB, 
+		err = rows.Scan(&conversation.ConversationId, &conversation.UserIdA, &conversation.UserIdB,
 			&conversation.LastMessage, &conversation.AckStatusUserA, &conversation.AckStatusUserB)
 
 		if err != nil {
@@ -232,7 +239,7 @@ func (s *WMMessagingService) FetchConversationsForUser(userId string) ([]Hydrate
 		}()
 
 		messageRows, err := s.Con.Query(context.Background(), `
-			select * from messages where conversation_id = $1
+			select * from messages where conversation_id = $1 order by timestamp asc
         `, conversation.ConversationId)
 
 		if err != nil {
@@ -267,7 +274,6 @@ func (s *WMMessagingService) FetchConversationsForUser(userId string) ([]Hydrate
 			AckStatusUserA: conversation.AckStatusUserA,
 			AckStatusUserB: conversation.AckStatusUserB,
 			Messages:       messages,
-			
 		})
 	}
 
@@ -275,23 +281,19 @@ func (s *WMMessagingService) FetchConversationsForUser(userId string) ([]Hydrate
 }
 
 type AckStatusRequestModel struct {
-	UserId string `json:"userId"`
+	UserId         string `json:"userId"`
 	ConversationId string `json:"conversationId"`
 }
-
 
 func (s *WMMessagingService) UpdateAckStatusForConversation(ackRequest AckStatusRequestModel) (bool, error) {
 
 	var result bool
 
-	
-
 	err := s.Con.QueryRow(context.Background(), `
 
 		select update_ack_status($1, $2)
 
-	`,ackRequest.UserId, ackRequest.ConversationId ).Scan(&result)
-
+	`, ackRequest.UserId, ackRequest.ConversationId).Scan(&result)
 
 	if err != nil {
 		fmt.Println(err.Error())
