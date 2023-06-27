@@ -13,7 +13,6 @@ type Interest struct {
 	UserId     string `json:"userId"`
 }
 
-
 type InterestStorage struct {
 	Con *pgxpool.Pool
 }
@@ -24,12 +23,12 @@ func InterestService(con *pgxpool.Pool) *InterestStorage {
 	}
 }
 
-func (i *InterestStorage) writeNewInterest(interest Interest) (Interest, error) {
+func (s *InterestStorage) writeNewInterest(interest Interest) (Interest, error) {
 
 	var returnInterest Interest
 	id := uuid.New().String()
-	 err := i.Con.QueryRow(context.Background(), "insert into interests(interest_id, interest, user_id) values($1, $2, $3)", 
-	 id, interest.Interest, interest.UserId).Scan(&returnInterest.InterestId, 
+	err := s.Con.QueryRow(context.Background(), "insert into interests(interest_id, interest, user_id) values($1, $2, $3)",
+		id, interest.Interest, interest.UserId).Scan(&returnInterest.InterestId,
 		&returnInterest.Interest, &returnInterest.UserId)
 
 	if err != nil {
@@ -39,25 +38,55 @@ func (i *InterestStorage) writeNewInterest(interest Interest) (Interest, error) 
 	return returnInterest, nil
 }
 
-func (s *InterestStorage) BatchCreateInterests(interests []string, userId string) ([]Interest) {
+func (s *InterestStorage) BatchCreateInterests(interests []string, userId string) []Interest {
 
 	var returnInterests []Interest
 
 	for i := 0; i < len(interests); i++ {
-		go func(x int)  {
+		go func(x int) {
 			newInterest := Interest{
 				Interest: interests[x],
-				UserId: userId,
+				UserId:   userId,
 			}
 			interest, err := s.writeNewInterest(newInterest)
 
 			if err != nil {
 				println(err.Error())
-				return 
+				return
 			}
 			returnInterests = append(returnInterests, interest)
 		}(i)
 	}
 
 	return returnInterests
+}
+
+//
+// Returns an array with only the interest, not the whole interest object
+//
+
+func (s *InterestStorage) FindInterestsByUserId(userId string) ([]string, error) {
+	var interests []string
+
+	rows, err := s.Con.Query(context.Background(), `
+    	select interest from interests where user_id = $1
+    `, userId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var interest string
+
+		err = rows.Scan(&interest)
+
+		if err != nil {
+			return nil, err
+		}
+
+		interests = append(interests, interest)
+	}
+
+	return interests, nil
 }

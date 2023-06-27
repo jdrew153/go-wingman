@@ -29,6 +29,7 @@ func newFiberServer(
 	messageHandler *handlers.MessageHandler,
 	wmmessageHandler *handlers.WMMessagingHandler,
 	cfHandler *handlers.CFImageUploaderHandler,
+	userRecommendationHandler *handlers.UserRecommendationHandler,
 	middleware *middleware.SessionMiddlewareHandler,
 ) *fiber.App {
 
@@ -78,6 +79,10 @@ func newFiberServer(
 	wmMessageGroup.Post("/new", wmmessageHandler.CreateNewMessageWithContext)
 	wmMessageGroup.Get("/conversations/:userId", wmmessageHandler.GetConversationsForUser)
 	wmMessageGroup.Post("/conversations/ack", wmmessageHandler.AckConversation)
+
+	// Recommendations Group
+	userRecommendationGroup := app.Group("/api/v1/userRecommendations")
+	userRecommendationGroup.Post("/new/:userId", userRecommendationHandler.CreateRecommendationsForUser)
 
 	app.Use(middleware.AuthCheck)
 
@@ -137,6 +142,7 @@ func main() {
 			services.NewMessageService,
 			services.NewWMMessagingServices,
 			services.NewPusherService,
+			services.NewUserRecommendationService,
 			handlers.NewUserHandler,
 			handlers.NewAuthHandler,
 			handlers.NewInterestHandler,
@@ -149,6 +155,7 @@ func main() {
 			handlers.NewAsyncHandler,
 			handlers.NewMessageHandler,
 			handlers.NewWMMessagingHandler,
+			handlers.NewUserRecommendationHandler,
 			middleware.NewSessionMiddlewareHandler,
 		),
 		fx.Invoke(newFiberServer),
