@@ -83,6 +83,7 @@ func newFiberServer(
 	// Recommendations Group
 	userRecommendationGroup := app.Group("/api/v1/userRecommendations")
 	userRecommendationGroup.Post("/new/:userId", userRecommendationHandler.CreateRecommendationsForUser)
+	userRecommendationGroup.Get("/context/:userId", userRecommendationHandler.GetListOfRecommendedUsersContextHandler)
 
 	app.Use(middleware.AuthCheck)
 

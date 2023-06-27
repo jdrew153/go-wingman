@@ -37,6 +37,7 @@ require (
 	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
 	github.com/stretchr/testify v1.8.2 // indirect
 	github.com/tinylib/msgp v1.1.8 // indirect
+	github.com/umahmood/haversine v0.0.0-20151105152445-808ab04add26 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.47.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect

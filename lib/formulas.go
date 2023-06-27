@@ -1,10 +1,12 @@
 package lib
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/adrg/strutil"
 	"github.com/adrg/strutil/metrics"
+	"github.com/umahmood/haversine"
 )
 
 func GetDistanceFromCoords(lat1 float64, long1 float64, lat2 float64, long2 float64) float64 {
@@ -27,6 +29,23 @@ func GetDistanceFromCoords(lat1 float64, long1 float64, lat2 float64, long2 floa
 
 }
 
+func CalcHaversine(lat1 float64, long1 float64, lat2 float64, long2 float64) float64 {
+	location1 := haversine.Coord{Lat: lat2, Lon: long2}
+	location2 := haversine.Coord{Lat: lat1, Lon: long1}
+
+	fmt.Println("location1: ", location1)
+	fmt.Println("location2: ", location2)
+
+	mi, km := haversine.Distance(location1, location2)
+
+	fmt.Printf("Miles: %f\n", mi)
+	fmt.Printf("Kilometers: %f\n", km)
+
+	return mi
+}
+
 func CalcTextSimilarity(text1 string, text2 string) float64 {
-	return strutil.Similarity(text1, text2, metrics.NewHamming())
+	fmt.Printf("text 1 %s\n", text1)
+	fmt.Printf("text 2 %s\n", text2)
+	return strutil.Similarity(text1, text2, metrics.NewJaccard())
 }

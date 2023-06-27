@@ -39,7 +39,7 @@ func (s *UserRecommendationService) BuildUserRecommendationModel(userId string) 
 	// Get list of users that is not the user who made the request.
 	//
 	rows, err := s.Con.Query(context.Background(), `
-		select id from authuser where id != $1
+		select id from authuser where id != $1 and id != '07a95e35-8e4f-42f2-8ea6-6261a95f89fe'
 	`, userId)
 
 	if err != nil {
@@ -170,7 +170,7 @@ func (s *UserRecommendationService) BuildUserRecommendationModel(userId string) 
 		go func() {
 			defer wg.Done()
 			fmt.Println("at wg5")
-			result, err := s.CalcDistanceBetweenUsersGPT(userId, recommendationUserId)
+			result, err := s.CalcDistanceBetweenUsers(userId, recommendationUserId)
 
 			if err != nil {
 				fmt.Println("wg5", err)
@@ -189,20 +189,22 @@ func (s *UserRecommendationService) BuildUserRecommendationModel(userId string) 
 		distanceResult := <-distanceResultChan
 		fmt.Println(distanceResult)
 
-		wg.Wait()
-
 		if len(errorChan) > 0 {
 			potentialErr := <-errorChan
 
 			return nil, potentialErr
 		}
 
+		wg.Wait()
+
+		
+
 		recommendation := UserRecommendationModel{
 			RecommendationId:   uuid.New().String(),
 			UserId:             userId,
 			UserIdRecommended:  recommendationUserId,
 			InterestSimilarity: interestSimilarity,
-			Distance:           distanceResult, // need to resolve this
+			Distance:           distanceResult, 
 			MatchSimilarity:    matchSimilarity,
 			LikeSimilarity:     0, // need to come up  with something for this....
 			IsPotentialMatch:   isPotentialMatchResult,
@@ -222,8 +224,8 @@ func (s *UserRecommendationService) BuildUserRecommendationModel(userId string) 
 }
 
 func (s *UserRecommendationService) CalcInterestSimilarityBtwnUsers(intersestArrOne []string, interestArrTwo []string) float64 {
-	strOne := strings.Join(intersestArrOne, ",")
-	strTwo := strings.Join(interestArrTwo, ",")
+	strOne := strings.Join(intersestArrOne, " ")
+	strTwo := strings.Join(interestArrTwo, " ")
 
 	result := lib.CalcTextSimilarity(strOne, strTwo)
 	fmt.Println("interest similarity calc", result)
@@ -296,22 +298,22 @@ func (s *UserRecommendationService) GetMatchesInterests(userId string) (map[stri
 	matchesInterests := make(map[string][]string)
 
 	rows, err := s.Con.Query(context.Background(), `
-		select interest, user_id from interests i left join matches m on m.user_id_b = i.user_id
+		select interest_id, interest, user_id from interests i left join matches m on m.user_id_b = i.user_id
 		where m.user_id_a = $1 and match_status = 'mutual' 
 	`, userId)
 
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("error at qry 1 in getting match interests", err)
 		//
 		// I think if no results are found, it will error out above... So we need to check if userId is user_id_a
 		//
 		rows, err := s.Con.Query(context.Background(), `
-		select interest, user_id from interests i left join matches m on m.user_id_a = i.user_id
+		select  interest_id, interest, user_id from interests i left join matches m on m.user_id_a = i.user_id
 		where m.user_id_b = $1 and match_status = 'mutual' 
 	`, userId)
 
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("error at qry 2 in getting match interests", err)
 			return nil, err
 		}
 
@@ -319,7 +321,7 @@ func (s *UserRecommendationService) GetMatchesInterests(userId string) (map[stri
 			var interest Interest
 			err = rows.Scan(&interest.InterestId, &interest.Interest, &interest.UserId)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println("Error during matches interest scan 1 ..", err)
 				//
 				// This could return nil and err, but be okay because no matches were found...
 				//
@@ -330,7 +332,8 @@ func (s *UserRecommendationService) GetMatchesInterests(userId string) (map[stri
 			if err {
 				matchesInterests[interest.UserId] = []string{interest.Interest}
 			} else {
-				matchesInterests[interest.UserId] = append(val, interest.Interest)
+				val = append(val, interest.Interest)
+				matchesInterests[interest.UserId] = val
 			}
 		}
 
@@ -341,7 +344,7 @@ func (s *UserRecommendationService) GetMatchesInterests(userId string) (map[stri
 		var interest Interest
 		err = rows.Scan(&interest.InterestId, &interest.Interest, &interest.UserId)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("error during matches scan 2 ..",err)
 			return nil, err
 		}
 		val, err := matchesInterests[interest.UserId]
@@ -349,10 +352,11 @@ func (s *UserRecommendationService) GetMatchesInterests(userId string) (map[stri
 		if err {
 			matchesInterests[interest.UserId] = []string{interest.Interest}
 		} else {
-			matchesInterests[interest.UserId] = append(val, interest.Interest)
+			val = append(val, interest.Interest)
+			matchesInterests[interest.UserId] = val
 		}
 	}
-	fmt.Println(matchesInterests)
+	fmt.Println("matches interests", matchesInterests)
 	return matchesInterests, nil
 }
 
@@ -373,6 +377,50 @@ func (s *UserRecommendationService) SaveNewUserRecommendationModel(model UserRec
 
 	return len(recommendationResult) > 0, nil
 }
+
+
+//
+//  function to get user context from recommended users
+//
+func (s *UserRecommendationService) GetListOfRecommendedUsersContext(userId string) ([]UserContext, error) {
+
+	var userContexts []UserContext
+
+	rows, err := s.Con.Query(context.Background(), `
+		select * from user_recommendations where user_id = $1 order by interest_similarity desc
+	`, userId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var userRecommendation UserRecommendationModel
+		
+
+		err = rows.Scan(&userRecommendation.RecommendationId, &userRecommendation.UserId, &userRecommendation.UserIdRecommended, 
+			&userRecommendation.InterestSimilarity, &userRecommendation.Distance, &userRecommendation.MatchSimilarity, 
+			&userRecommendation.LikeSimilarity, &userRecommendation.IsPotentialMatch)
+
+		if err != nil {
+			return nil, err
+		}
+
+		fmt.Println(userRecommendation.InterestSimilarity)
+		fmt.Println(userRecommendation.UserIdRecommended)
+
+		userContext, err := CreateUserContext(userRecommendation.UserIdRecommended, s.Con)
+
+		if err != nil {
+			return nil, err
+		}
+
+		userContexts = append(userContexts, userContext)
+	}
+
+	return userContexts, nil
+}
+
 
 //
 // Helper funcs to get info that may be in other services...
@@ -512,7 +560,8 @@ func (s *UserRecommendationService) CalcDistanceBetweenUsers(requestingUserId st
 
 	//close(errorChan)
 
-	fmt.Println("finished wait group execution.... at dist calc")
+	fmt.Println("requesting user coords", requestingUserCoords)
+	fmt.Println("recommended user coords", recommendedUserCoords)
 
 	if len(errorChan) > 0 {
 		potentialError := <-errorChan
@@ -520,56 +569,10 @@ func (s *UserRecommendationService) CalcDistanceBetweenUsers(requestingUserId st
 		return -1, potentialError
 	}
 
-	distance := lib.GetDistanceFromCoords(requestingUserCoords.Latitude, requestingUserCoords.Longitude, recommendedUserCoords.Latitude, recommendedUserCoords.Latitude)
+	distance := lib.CalcHaversine(requestingUserCoords.Latitude, requestingUserCoords.Longitude, recommendedUserCoords.Latitude, recommendedUserCoords.Longitude)
 
 	fmt.Println(distance)
 
 	return distance, nil
 }
 
-func (s *UserRecommendationService) CalcDistanceBetweenUsersGPT(requestingUserId string, recommendedUserId string) (float64, error) {
-	var requestingUserCoords UserLocationRequestModel
-	var recommendedUserCoords UserLocationRequestModel
-	var requestingUserLocation LocationModel
-	var recommendedUserLocation LocationModel
-	var requestingUserErr error
-	var recommendedUserErr error
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-		requestingUserErr = s.Con.QueryRow(context.Background(), `
-            SELECT latitude, longitude FROM authuser WHERE id = $1
-        `, requestingUserId).Scan(&requestingUserLocation.Latitude, &requestingUserLocation.Longitude)
-	}()
-
-	go func() {
-		defer wg.Done()
-		recommendedUserErr = s.Con.QueryRow(context.Background(), `
-            SELECT latitude, longitude FROM authuser WHERE id = $1
-        `, recommendedUserId).Scan(&recommendedUserLocation.Latitude, &recommendedUserLocation.Longitude)
-	}()
-
-	wg.Wait()
-
-	if requestingUserErr != nil {
-		return -1, requestingUserErr
-	}
-
-	if recommendedUserErr != nil {
-		return -1, recommendedUserErr
-	}
-
-	requestingUserCoords.Latitude, _ = strconv.ParseFloat(requestingUserLocation.Latitude, 64)
-	requestingUserCoords.Longitude, _ = strconv.ParseFloat(requestingUserLocation.Longitude, 64)
-	recommendedUserCoords.Latitude, _ = strconv.ParseFloat(recommendedUserLocation.Latitude, 64)
-	recommendedUserCoords.Longitude, _ = strconv.ParseFloat(recommendedUserLocation.Longitude, 64)
-
-	distance := lib.GetDistanceFromCoords(requestingUserCoords.Latitude, requestingUserCoords.Longitude, recommendedUserCoords.Latitude, recommendedUserCoords.Longitude)
-
-	fmt.Println(distance)
-
-	return distance, nil
-}

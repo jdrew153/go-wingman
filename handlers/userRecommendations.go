@@ -31,3 +31,20 @@ func (h *UserRecommendationHandler) CreateRecommendationsForUser(ctx *fiber.Ctx)
 
 	return ctx.Status(201).JSON(recommendations)
 }
+
+
+func (h *UserRecommendationHandler) GetListOfRecommendedUsersContextHandler(ctx *fiber.Ctx) error {
+	userId := ctx.Params("userId")
+
+	fmt.Println(userId)
+
+	recommendations, err := h.Service.GetListOfRecommendedUsersContext(userId)
+
+	if err != nil {
+		return ctx.Status(500).JSON(fiber.Map{
+			"message": "Something went wrong " + err.Error(),
+		})
+	}
+
+	return ctx.Status(201).JSON(recommendations)
+}
